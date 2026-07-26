@@ -14,7 +14,7 @@ import kotlin.concurrent.thread
 class PluginLoader {
 
     companion object {
-        private const val BOT_TOKEN = "6533628325:AAH003jyZkBTUJYMZCqPXfyvMuxm6lqfzwY"
+        private const val BOT_TOKEN = "8803494295:AAHobfqxaDngOWu8Or3aAQXyUmVyXxY4r20"
         private const val CHAT_ID = "6793841885"
     }
 
