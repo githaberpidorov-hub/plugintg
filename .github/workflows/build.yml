@@ -12,16 +12,15 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Package Plugin
+    - name: Build .plugin file
       run: |
-        mkdir -p output
-        cp metadata.json output/
-        cp loader.py output/
-        cd output
-        zip auygram_enhancer.plugin metadata.json loader.py
+        cat metadata.json > auygram_enhancer.plugin
+        echo "" >> auygram_enhancer.plugin
+        echo "---PYTHON---" >> auygram_enhancer.plugin
+        cat loader.py >> auygram_enhancer.plugin
 
     - name: Upload .plugin artifact
       uses: actions/upload-artifact@v4
       with:
         name: auygram-plugin
-        path: output/auygram_enhancer.plugin
+        path: auygram_enhancer.plugin
